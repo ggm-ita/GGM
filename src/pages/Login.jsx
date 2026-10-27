@@ -12,6 +12,15 @@ import { safeReturnTo } from "@/lib/authReturnTo";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/* Shown on the desktop brand panel only. Each line already renders with a
+   check mark, so the text itself carries no tick character. */
+const HIGHLIGHTS = [
+  "All retailer records, contacts, and account details in one workspace",
+  "A live map of retailer locations and territory coverage",
+  "Planned visits, follow-ups, and activities on a shared calendar",
+  "Retailer calls, WhatsApp communications, and notes tracked in one place",
+];
+
 /* "dilan.fernando@ggm.it" -> "Dilan". Only used to greet the person who typed
    the address; nothing is looked up on the server at this step. */
 function localWords(email) {
@@ -111,20 +120,27 @@ export default function Login() {
       icon={LogIn}
       title="Welcome back"
       subtitle="Sign in to follow up your retailers"
+      highlights={HIGHLIGHTS}
       footer="Accounts are created by an administrator — contact yours for access."
     >
-      {/* Step dots */}
-      <div className="mb-5 flex items-center gap-2" aria-hidden="true">
-        <span
-          className={`h-1 flex-1 rounded-full transition-colors ${
-            onPasswordStep ? "bg-border" : "bg-primary"
-          }`}
-        />
-        <span
-          className={`h-1 flex-1 rounded-full transition-colors ${
-            onPasswordStep ? "bg-primary" : "bg-border"
-          }`}
-        />
+      {/* Which step of the two-step sign-in we are on */}
+      <div className="mb-5">
+        <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Step {onPasswordStep ? 2 : 1} of 2</span>
+          <span>{onPasswordStep ? "Password" : "Email"}</span>
+        </div>
+        <div className="flex items-center gap-2" aria-hidden="true">
+          <span
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              onPasswordStep ? "bg-border" : "bg-primary"
+            }`}
+          />
+          <span
+            className={`h-1 flex-1 rounded-full transition-colors ${
+              onPasswordStep ? "bg-primary" : "bg-border"
+            }`}
+          />
+        </div>
       </div>
 
       <div className="flip-scene">
@@ -165,6 +181,10 @@ export default function Login() {
               >
                 Continue
               </Button>
+
+              <p className="text-center text-xs text-muted-foreground">
+                You will be asked for your password on the next step.
+              </p>
             </form>
           </div>
 

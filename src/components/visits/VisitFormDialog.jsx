@@ -73,9 +73,11 @@ export default function VisitFormDialog({ open, onOpenChange, retailer, onSaved 
         region: picked.region,
         scheduled_date: date,
         scheduled_time: time,
-        status: "scheduled",
+        /* Staff requests wait for an administrator's approval; an administrator
+           schedules directly. */
+        status: isAdmin ? "scheduled" : "pending",
         assigned_to: assignedTo,
-        assigned_to_name: assignee?.full_name || assignee?.email || assignedTo,
+        assigned_to_name: assignee?.full_name || user?.full_name || assignee?.email || assignedTo,
         notes: notes.trim(),
       });
       onSaved?.();
@@ -158,13 +160,20 @@ export default function VisitFormDialog({ open, onOpenChange, retailer, onSaved 
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
+          {!isAdmin && (
+            <p className="rounded-lg border border-border bg-secondary/60 px-3 py-2 text-[11px] text-muted-foreground">
+              Your request is sent to an administrator, who approves it before the visit appears in
+              the plan.
+            </p>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              Schedule visit
+              {isAdmin ? "Schedule visit" : "Request visit"}
             </Button>
           </div>
         </div>

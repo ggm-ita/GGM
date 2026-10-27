@@ -6,6 +6,7 @@ import { eur, isActive, telLink, waLink } from "@/lib/retailers";
 import { cn } from "@/lib/utils";
 
 const STATUS = {
+  pending: { label: "Pending", className: "bg-accent text-accent-foreground" },
   scheduled: { label: "Scheduled", className: "bg-primary/15 text-primary" },
   completed: { label: "Completed", className: "bg-success/15 text-success" },
   cancelled: { label: "Cancelled", className: "bg-secondary text-muted-foreground" },

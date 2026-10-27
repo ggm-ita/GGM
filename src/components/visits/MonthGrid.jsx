@@ -59,9 +59,11 @@ export default function MonthGrid({ days, selectedKey, today, onSelect }) {
                           ? "bg-success"
                           : visit.status === "cancelled"
                             ? "bg-muted-foreground"
-                            : visit.overdue
-                              ? "bg-destructive"
-                              : "bg-primary"
+                            : visit.status === "pending"
+                              ? "bg-accent-foreground"
+                              : visit.overdue
+                                ? "bg-destructive"
+                                : "bg-primary"
                       )}
                     />
                   ))}

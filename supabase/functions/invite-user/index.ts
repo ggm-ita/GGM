@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
   }
 
   // 3. Validate the request, then invite.
-  let payload: { email?: unknown; role?: unknown; redirectTo?: unknown };
+  let payload: { email?: unknown; role?: unknown; fullName?: unknown; redirectTo?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
   }
 
   const email = String(payload?.email ?? "").trim().toLowerCase();
+  const fullName = String(payload?.fullName ?? "").trim();
   const role = payload?.role === "admin" ? "admin" : "user";
   const redirectTo =
     typeof payload?.redirectTo === "string" && payload.redirectTo.startsWith("http")
@@ -80,9 +81,11 @@ Deno.serve(async (req) => {
       : undefined;
 
   if (!EMAIL_RE.test(email)) return json({ error: "A valid email address is required." }, 400);
+  if (!fullName) return json({ error: "The staff member's name is required." }, 400);
+  if (fullName.length > 120) return json({ error: "That name is too long." }, 400);
 
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role },
+    data: { role, full_name: fullName },
     redirectTo,
   });
   if (inviteError) {
@@ -93,8 +96,9 @@ Deno.serve(async (req) => {
     );
   }
 
-  // The signup trigger seeds the profile with the default role; apply the requested one.
-  await admin.from("profiles").update({ role }).eq("email", email);
+  // The signup trigger seeds the profile with the default role and name; make
+  // sure both match exactly what the administrator entered.
+  await admin.from("profiles").update({ role, full_name: fullName }).eq("email", email);
 
-  return json({ id: invited?.user?.id ?? null, email, role }, 200);
+  return json({ id: invited?.user?.id ?? null, email, role, full_name: fullName }, 200);
 });

@@ -339,9 +339,12 @@ supabase functions deploy invite-user
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are provided to the
 function by Supabase automatically; you do not set them yourself.
 
-Then, as an admin: **Staff → Add user**, enter the email, choose the role and territory,
-and save. The person receives an invitation e-mail, sets a password from it, and sees only
-the retailers in the territory you assigned.
+Then, as an admin: **Staff → Add user**, enter the full name, the email, and choose the role
+and territory, then save. The person receives an invitation e-mail, sets a password from it,
+and sees only the retailers in the territory you assigned.
+
+> Re-deploy the function after pulling this change: it now requires the staff member's name
+> along with the e-mail and stores it on the profile.
 
 > If the function is not deployed, adding a user fails with
 > *"Could not reach the invite-user function…"*. That is intentional — there is no
@@ -359,6 +362,7 @@ What protects the deployment, and where to check it:
 | **Admin-only user creation** | `invite-user` verifies the caller's JWT and re-reads their `role` from `profiles` before touching the service-role key. |
 | **Territory-scoped reads** | RLS on `retailers`, `visits` and `interactions` limits reads to `is_admin()`, a `scope_type = 'all'` user, the user's regions, or rows they authored / are assigned to. |
 | **Writes** | Only admins may write retailers; users may create visits/interactions and edit their own. |
+| **Visit approvals** | A visit a staff member requests is stored as `status = 'pending'`; only an admin can move it to `scheduled` (approve) or `cancelled` (decline). |
 | **Row attribution** | `set_attribution` overwrites `created_by_id` (and `staff_email`) from the session, so authorship cannot be forged. |
 | **Secrets** | Only the `anon` key is in the frontend; `.env*` is gitignored; the service-role key lives only inside the Edge Function. |
 | **Transport & framing** | `vercel.json` sends HSTS, a strict CSP (no third-party scripts — Leaflet is vendored under `public/vendor/`), `X-Frame-Options: DENY` and a restrictive `Permissions-Policy`. |
@@ -375,11 +379,12 @@ Rotate the `anon` key in Supabase and update the Vercel variable if it is ever e
 ### Replace the logo
 
 The logo shown inside the app is [public/ggm-logo.svg](public/ggm-logo.svg) (referenced by
-[src/lib/brand.js](src/lib/brand.js) for the signed-in shell). Drop in your own
-`ggm-logo.svg` — keep the filename and the header keeps working. The signed-out pages
-(login, forgot/reset password) draw the same mark from
-[src/components/GgmLogo.jsx](src/components/GgmLogo.jsx), an inline copy of that file, so
-update both if you change the artwork.
+[src/lib/brand.js](src/lib/brand.js)). Drop in your own `ggm-logo.svg` — keep the filename
+and both the header and the signed-out pages keep working. The login, forgot-password and
+reset-password screens draw it through
+[src/components/GgmLogo.jsx](src/components/GgmLogo.jsx); set the height with the
+`className` you pass to that component (`h-24 w-auto` on the desktop panel, `h-20 w-auto`
+on phones).
 
 The **browser favicon and the installable-app icons** are the files in
 [public/icon/web/](public/icon/web) (see [step 11](#11-install-the-app-pwa)); replace them

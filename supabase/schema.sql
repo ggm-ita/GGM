@@ -71,13 +71,20 @@ create table if not exists public.visits (
   scheduled_date   date not null,
   scheduled_time   text,
   status           text not null default 'scheduled'
-                     check (status in ('scheduled', 'completed', 'cancelled')),
+                     check (status in ('pending', 'scheduled', 'completed', 'cancelled')),
   assigned_to      text,
   assigned_to_name text,
   notes            text,
   outcome          text,
   completed_at     timestamptz
 );
+
+-- A visit a staff member requests is created as 'pending' and only becomes
+-- 'scheduled' once an administrator approves it. Re-apply the constraint so
+-- databases created before the approval flow accept the 'pending' state.
+alter table public.visits drop constraint if exists visits_status_check;
+alter table public.visits add constraint visits_status_check
+  check (status in ('pending', 'scheduled', 'completed', 'cancelled'));
 
 create table if not exists public.interactions (
   id            uuid primary key default gen_random_uuid(),

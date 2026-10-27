@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { key: "upcoming", label: "Upcoming" },
+  { key: "pending", label: "Pending" },
   { key: "overdue", label: "Overdue" },
   { key: "completed", label: "Completed" },
   { key: "cancelled", label: "Cancelled" },
@@ -101,6 +102,9 @@ export default function Visits() {
       upcoming: visits
         .filter((v) => v.status === "scheduled" && v.scheduled_date >= today)
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
+      pending: visits
+        .filter((v) => v.status === "pending")
+        .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
       overdue: visits
         .filter((v) => v.status === "scheduled" && v.scheduled_date < today)
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
@@ -114,6 +118,19 @@ export default function Visits() {
   const cancelVisit = async (visit) => {
     await db.entities.Visit.update(visit.id, { status: "cancelled" });
     setNotice("Visit cancelled.");
+    refresh();
+  };
+
+  /* A staff request only becomes part of the plan once an admin approves it. */
+  const approveVisit = async (visit) => {
+    await db.entities.Visit.update(visit.id, { status: "scheduled" });
+    setNotice(`Visit for ${visit.retailer_name} approved.`);
+    refresh();
+  };
+
+  const declineVisit = async (visit) => {
+    await db.entities.Visit.update(visit.id, { status: "cancelled" });
+    setNotice(`Visit request for ${visit.retailer_name} declined.`);
     refresh();
   };
 
@@ -132,15 +149,28 @@ export default function Visits() {
         view === "list" ? "max-w-3xl" : "max-w-6xl"
       )}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-3xl text-primary">Visits</h1>
-          <p className="text-sm text-muted-foreground">
-            Plan the rounds, then mark each retailer as visited.
-          </p>
+      <div className="mb-4 grid gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-heading text-3xl text-primary">Visits</h1>
+            <p className="text-sm text-muted-foreground">
+              Plan the rounds, then mark each retailer as visited.
+            </p>
+          </div>
+          {isAdmin && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
+                <Upload className="w-4 h-4 mr-2" /> Upload schedule
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => openPlanner()}>
+                <ListChecks className="w-4 h-4 mr-2" /> Plan multiple
+              </Button>
+            </div>
+          )}
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex overflow-hidden rounded-lg border border-border">
+          <div className="flex overflow-x-auto rounded-lg border border-border ggm-scroll">
             {views.map((item) => (
               <button
                 key={item.key}
@@ -148,7 +178,7 @@ export default function Visits() {
                 onClick={() => setView(item.key)}
                 aria-pressed={view === item.key}
                 className={cn(
-                  "flex items-center gap-1.5 border-r border-border px-3 py-2 text-[11px] font-medium last:border-r-0",
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap border-r border-border px-3 py-2 text-[11px] font-medium last:border-r-0",
                   view === item.key
                     ? "bg-primary text-primary-foreground font-semibold"
                     : "bg-card text-muted-foreground"
@@ -159,18 +189,9 @@ export default function Visits() {
               </button>
             ))}
           </div>
-          {isAdmin && (
-            <>
-              <Button variant="outline" onClick={() => setUploadOpen(true)}>
-                <Upload className="w-4 h-4 mr-2" /> Upload schedule
-              </Button>
-              <Button variant="outline" onClick={() => openPlanner()}>
-                <ListChecks className="w-4 h-4 mr-2" /> Plan multiple
-              </Button>
-            </>
-          )}
-          <Button onClick={() => setFormOpen(true)}>
-            <CalendarPlus className="w-4 h-4 mr-2" /> Schedule visit
+          <Button className="w-full sm:ml-auto sm:w-auto" onClick={() => setFormOpen(true)}>
+            <CalendarPlus className="w-4 h-4 mr-2" />
+            {isAdmin ? "Schedule visit" : "Request visit"}
           </Button>
         </div>
       </div>
@@ -198,20 +219,20 @@ export default function Visits() {
         )
       ) : (
         <>
-          <div className="mb-4 flex overflow-hidden rounded-lg border border-border">
+          <div className="ggm-scroll mb-4 flex overflow-x-auto rounded-lg border border-border">
             {TABS.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 onClick={() => setTab(item.key)}
                 className={cn(
-                  "flex-1 border-r border-border py-2.5 text-[11px] font-medium last:border-r-0",
+                  "min-w-fit flex-1 whitespace-nowrap border-r border-border px-3 py-2.5 text-[11px] font-medium last:border-r-0",
                   tab === item.key
                     ? "bg-primary text-primary-foreground font-semibold"
                     : "bg-card text-muted-foreground"
                 )}
               >
-                {item.label}
+                {item.key === "pending" && isAdmin ? "Approvals" : item.label}
                 <span className="ml-1 font-mono opacity-80">{groups[item.key].length}</span>
               </button>
             ))}
@@ -228,13 +249,18 @@ export default function Visits() {
                   key={visit.id}
                   visit={visit}
                   overdue={tab === "overdue"}
+                  canApprove={isAdmin}
                   onMarkVisited={setMarkVisit}
                   onCancel={cancelVisit}
+                  onApprove={approveVisit}
+                  onDecline={declineVisit}
                 />
               ))
             ) : (
               <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-                Nothing here yet. Schedule a visit to start the round.
+                {tab === "pending"
+                  ? "No visit requests waiting."
+                  : "Nothing here yet. Schedule a visit to start the round."}
               </p>
             )}
           </div>
@@ -245,9 +271,11 @@ export default function Visits() {
         open={formOpen}
         onOpenChange={setFormOpen}
         onSaved={() => {
-          setNotice("Visit scheduled.");
+          setNotice(
+            isAdmin ? "Visit scheduled." : "Visit requested — an admin will approve it shortly."
+          );
           setView("list");
-          setTab("upcoming");
+          setTab(isAdmin ? "upcoming" : "pending");
           refresh();
         }}
       />

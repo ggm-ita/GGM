@@ -37,6 +37,7 @@ export default function ScopeDialog({
   const isSelf = !isInvite && user?.email && user.email === currentUser?.email;
 
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("user");
   const [scopeType, setScopeType] = useState("all");
   const [regions, setRegions] = useState([]);
@@ -48,6 +49,7 @@ export default function ScopeDialog({
   useEffect(() => {
     if (!open) return;
     setEmail(user?.email || "");
+    setFullName(isInvite ? "" : user?.full_name || "");
     setRole(user?.role || "user");
     setScopeType(user?.scope_type || (isInvite ? "all" : ""));
     setRegions(user?.regions || []);
@@ -79,6 +81,10 @@ export default function ScopeDialog({
 
   const save = async () => {
     setError("");
+    if (isInvite && !fullName.trim()) {
+      setError("Enter the staff member's name.");
+      return;
+    }
     if (isInvite && !/^\S+@\S+\.\S+$/.test(email.trim())) {
       setError("Enter a valid email address.");
       return;
@@ -102,7 +108,7 @@ export default function ScopeDialog({
 
     try {
       if (isInvite) {
-        await db.users.inviteUser(email.trim(), role);
+        await db.users.inviteUser(email.trim(), role, fullName.trim());
         const list = await db.entities.User.list();
         const created = (list || []).find(
           (u) => String(u.email).toLowerCase() === email.trim().toLowerCase()
@@ -141,28 +147,39 @@ export default function ScopeDialog({
 
         <div className="grid gap-4">
           {isInvite && (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="staff-email">Email</Label>
+                <Label htmlFor="staff-name">Full name</Label>
                 <Input
-                  id="staff-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="colleague@ggm.it"
+                  id="staff-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Mario Rossi"
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="staff-role">Role</Label>
-                <select
-                  id="staff-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="h-10 rounded-lg border border-border bg-secondary px-2 text-sm"
-                >
-                  <option value="user">Staff — follows retailers</option>
-                  <option value="admin">Admin — full access</option>
-                </select>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="staff-email">Email</Label>
+                  <Input
+                    id="staff-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="colleague@ggm.it"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="staff-role">Role</Label>
+                  <select
+                    id="staff-role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="h-10 rounded-lg border border-border bg-secondary px-2 text-sm"
+                  >
+                    <option value="user">Staff — follows retailers</option>
+                    <option value="admin">Admin — full access</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

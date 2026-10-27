@@ -409,9 +409,9 @@ const users = {
   /* Accounts are created by administrators only. The `invite-user` edge
      function re-checks the caller's role server-side before it uses the
      service-role key, so nobody else can provision users. */
-  inviteUser: async (email, role = "user") => {
+  inviteUser: async (email, role = "user", fullName = "") => {
     const { data, error } = await supabase.functions.invoke("invite-user", {
-      body: { email, role, redirectTo: `${window.location.origin}/login` },
+      body: { email, role, fullName, redirectTo: `${window.location.origin}/login` },
     });
     if (error) {
       throw new Error(
