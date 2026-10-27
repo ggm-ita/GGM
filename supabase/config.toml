@@ -1,0 +1,7 @@
+# Supabase CLI configuration for this project.
+
+[functions.invite-user]
+# The function authenticates the caller itself (it re-checks the admin role
+# before using the service-role key), so the gateway must not require a JWT:
+# that would break the CORS pre-flight requests browsers send first.
+verify_jwt = false

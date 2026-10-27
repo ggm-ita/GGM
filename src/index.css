@@ -1,0 +1,333 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  .dark {
+    --background: 60 7% 3%;
+    --foreground: 42 47% 88%;
+    --card: 45 16% 5%;
+    --card-foreground: 42 47% 88%;
+    --popover: 45 20% 7%;
+    --popover-foreground: 42 47% 88%;
+    --primary: 45 65% 52%;
+    --primary-foreground: 45 90% 6%;
+    --secondary: 44 18% 11%;
+    --secondary-foreground: 42 40% 84%;
+    --muted: 45 15% 10%;
+    --muted-foreground: 38 14% 52%;
+    --accent: 45 22% 14%;
+    --accent-foreground: 46 78% 68%;
+    --destructive: 358 100% 68%;
+    --destructive-foreground: 0 0% 8%;
+    --success: 148 63% 51%;
+    --success-foreground: 150 80% 8%;
+    --border: 44 30% 13%;
+    --input: 44 30% 13%;
+    --ring: 45 65% 52%;
+    --radius: 0.6rem;
+    --chart-1: 45 65% 52%;
+    --chart-2: 148 63% 51%;
+    --chart-3: 46 78% 68%;
+    --chart-4: 38 40% 45%;
+    --chart-5: 358 100% 68%;
+    --font-heading: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-display: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+    --sidebar-background: 45 16% 5%;
+    --sidebar-foreground: 42 47% 88%;
+    --sidebar-primary: 45 65% 52%;
+    --sidebar-primary-foreground: 45 90% 6%;
+    --sidebar-accent: 45 22% 14%;
+    --sidebar-accent-foreground: 46 78% 68%;
+    --sidebar-border: 44 30% 13%;
+    --sidebar-ring: 45 65% 52%;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Phones: no visible scrollbars, and nothing may scroll sideways. */
+@media (max-width: 1023px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+
+  /* Standard system type: headings carry their own weight now that the
+     serif display face is gone. */
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+}
+
+/* ---------- Login: two-step flip card ---------- */
+/* Both faces share one grid cell, so the card is always as tall as its
+   tallest face and nothing jumps when it turns over. */
+.flip-scene {
+  perspective: 1600px;
+}
+
+.flip-card {
+  display: grid;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.22, 0.75, 0.25, 1);
+}
+
+.flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-face {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-face-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card {
+    transition: none;
+  }
+}
+
+/* ---------- Leaflet: GGM dark & gold ---------- */
+/* The map lives in its own stacking context, so Leaflet panes and controls
+   can never paint over dialogs, sheets or popups rendered above it. */
+.ggm-map {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+}
+
+.leaflet-container {
+  background: #0c0c0a;
+  font-family: var(--font-body);
+  z-index: 0;
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  background: #0f0e0b;
+  color: #d4af37;
+  border-color: #2b2616;
+}
+
+.leaflet-bar a:hover {
+  background: #d4af37;
+  color: #120f03;
+}
+
+.leaflet-control-attribution {
+  background: rgba(8, 8, 7, 0.82) !important;
+  color: #958b73 !important;
+  font-size: 10px;
+}
+
+.leaflet-control-attribution a {
+  color: #8c7424 !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #0f0e0b;
+  color: #efe8d3;
+  border: 1px solid #8c7424;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+}
+
+.leaflet-popup-content {
+  margin: 14px 16px;
+  min-width: 220px;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  color: #d4af37;
+}
+
+/* Pins */
+.ggm-pin-wrap {
+  background: none;
+  border: none;
+}
+
+.ggm-pin {
+  display: block;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
+  transition: transform 0.12s ease;
+}
+
+/* Clusters: ring shows the active / inactive split of the group */
+.marker-cluster,
+.marker-cluster div {
+  background: none !important;
+  border: none !important;
+}
+
+.ggm-cl {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#34d27b 0 var(--g), #ff5a5f 0);
+  border: 2px solid #d4af37;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55);
+}
+
+.ggm-cl span {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0a0905;
+  color: #f1d36b;
+  font: 500 12px var(--font-mono);
+}
+
+/* Popup body */
+.pp h3 {
+  margin: 0 22px 2px 0;
+  font: 700 20px/1.15 var(--font-display);
+  color: #f1d36b;
+}
+
+.pp .un {
+  color: #958b73;
+  font: 400 12px var(--font-mono);
+  margin-bottom: 8px;
+}
+
+.pp dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.pp dt {
+  color: #958b73;
+}
+
+.pp dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pp dd.big {
+  font-size: 15px;
+  color: #f1d36b;
+}
+
+.pp .dmore {
+  display: inline-block;
+  margin-top: 10px;
+  color: #f1d36b;
+  font-weight: 600;
+  font-size: 13px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.pp .dmore:hover {
+  text-decoration: underline;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.g {
+  background: #34d27b;
+}
+
+.dot.r {
+  background: #ff5a5f;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.pill.g {
+  color: #34d27b;
+  border-color: #34d27b;
+  background: rgba(52, 210, 123, 0.1);
+}
+
+.pill.r {
+  color: #ff5a5f;
+  border-color: #ff5a5f;
+  background: rgba(255, 90, 95, 0.1);
+}
+
+/* Scrollbars in the dark rail */
+.ggm-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ggm-scroll::-webkit-scrollbar-thumb {
+  background: #2b2616;
+  border-radius: 99px;
+}
+
+.ggm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
