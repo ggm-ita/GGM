@@ -405,6 +405,24 @@ const auth = {
  * Platform surface the app expects
  * ------------------------------------------------------------------ */
 
+/* `functions.invoke` reports every non-2xx response (404 not deployed, 401
+   gateway auth, 400/403/409 from the function) as an `error`, so read the JSON
+   body the function returned and surface its `error`/`message` instead of a
+   generic note. */
+const functionErrorMessage = async (error) => {
+  const response = error?.context;
+  if (response && typeof response.clone === "function" && typeof response.json === "function") {
+    try {
+      const body = await response.clone().json();
+      if (body?.error) return body.error;
+      if (body?.message) return body.message;
+    } catch {
+      /* the body was not JSON */
+    }
+  }
+  return "";
+};
+
 const users = {
   /* Accounts are created by administrators only. The `invite-user` edge
      function re-checks the caller's role server-side before it uses the
@@ -416,7 +434,8 @@ const users = {
     });
     if (error) {
       throw new Error(
-        "Could not reach the invite-user function. Deploy it before creating users (see README)."
+        (await functionErrorMessage(error)) ||
+          "Could not reach the invite-user function. Deploy it with `supabase functions deploy invite-user` (see README, step 12)."
       );
     }
     if (data?.error) throw new Error(data.error);
