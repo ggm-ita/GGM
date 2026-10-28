@@ -1,4 +1,4 @@
-import { db } from "@/api/supabaseClient";
+import { db, supabase } from "@/api/supabaseClient";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -42,6 +42,28 @@ export function useNotifications(user) {
       clearInterval(timer);
     };
   }, [load]);
+
+  /* Live updates: a new row arrives the moment a trigger writes it, so the badge
+     changes without a page refresh. The poll above stays as a fallback. */
+  useEffect(() => {
+    if (!userId || !supabase) return undefined;
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => load()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, load]);
 
   const markRead = useCallback(
     async (id) => {

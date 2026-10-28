@@ -479,6 +479,20 @@ create trigger visits_notify_decision
   after update on public.visits
   for each row execute function public.notify_visit_decision();
 
+-- Stream new notifications to the client so the panel updates live, without a
+-- page refresh. Added idempotently: re-running the file does not error.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- RPC functions used by the frontend client
 -- ---------------------------------------------------------------------------
