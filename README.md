@@ -87,11 +87,13 @@ This creates:
 | `retailers` | the retailer master data |
 | `visits` | scheduled / completed visits |
 | `interactions` | calls, WhatsApp, notes against a retailer |
+| `notifications` | in-app alerts: visit requests to admins, approval/decline to staff |
 | `is_admin()`, `scope_is_all()`, `user_regions()`, `user_provinces()` | helpers used by the security rules |
 | `distinct_values()`, `bulk_update()`, `entity_aggregate()` | the batch/aggregate calls the UI makes |
 | row level security policies | territory-limited reads, admin-only writes |
 | `on_auth_user_created` trigger | creates the `profiles` row for each new account |
 | `set_attribution` trigger | stamps `created_by_id` (and `staff_email`) from the session, never from the request body |
+| `notify_visit_request` / `notify_visit_decision` triggers | raise in-app notifications when a visit is requested and when an admin approves or declines it |
 | storage bucket `public` | file uploads, capped at 10 MB and limited to CSV/PDF/images |
 
 > You can re-run this file any time; it never duplicates objects or wipes data.
@@ -366,6 +368,7 @@ What protects the deployment, and where to check it:
 | **Territory-scoped reads** | RLS on `retailers`, `visits` and `interactions` limits reads to `is_admin()`, a `scope_type = 'all'` user, the user's regions, or rows they authored / are assigned to. |
 | **Writes** | Only admins may write retailers; users may create visits/interactions and edit their own. |
 | **Visit approvals** | A visit a staff member requests is stored as `status = 'pending'`; only an admin can move it to `scheduled` (approve) or `cancelled` (decline). |
+| **Notifications** | Rows are written only by database triggers (no insert policy), so they cannot be forged; each user reads, clears and deletes their own. |
 | **Row attribution** | `set_attribution` overwrites `created_by_id` (and `staff_email`) from the session, so authorship cannot be forged. |
 | **Secrets** | Only the `anon` key is in the frontend; `.env*` is gitignored; the service-role key lives only inside the Edge Function. |
 | **Transport & framing** | `vercel.json` sends HSTS, a strict CSP (no third-party scripts — Leaflet is vendored under `public/vendor/`), `X-Frame-Options: DENY` and a restrictive `Permissions-Policy`. |

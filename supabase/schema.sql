@@ -5,12 +5,13 @@
 -- Every statement is idempotent, so re-running it is safe.
 --
 -- It creates:
---   • tables   : profiles, retailers, visits, interactions
+--   • tables   : profiles, retailers, visits, interactions, notifications
 --   • helpers  : is_admin(), scope_is_all(), user_regions(), user_provinces()
 --   • RPCs     : distinct_values(), bulk_update(), entity_aggregate()
 --   • policies : row level security mirroring the original app rules, but with
 --                territory-scoped reads on retailers/visits/interactions
---   • triggers : a profile row for every new auth user, plus row attribution
+--   • triggers : a profile row for every new auth user, row attribution, and the
+--                visit-request / visit-decision notifications
 --   • storage  : the public bucket used for file uploads (size/type capped)
 -- ===========================================================================
 
@@ -367,6 +368,118 @@ create policy "interactions delete" on public.interactions
   using (public.is_admin() or created_by_id = auth.uid());
 
 -- ---------------------------------------------------------------------------
+-- Notifications: the in-app panel that lets an admin track staff requests and
+-- lets a staff member learn that a visit was approved or declined.
+--
+-- Rows are written by the triggers below only (there is deliberately no insert
+-- policy, so a client cannot forge one). Each user reads and clears their own.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.notifications (
+  id           uuid primary key default gen_random_uuid(),
+  created_date timestamptz not null default now(),
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  kind         text not null default 'info',
+  title        text not null,
+  body         text,
+  link         text,
+  is_read      boolean not null default false
+);
+
+create index if not exists notifications_user_id_idx
+  on public.notifications (user_id, created_date desc);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications read own" on public.notifications;
+create policy "notifications read own" on public.notifications
+  for select to authenticated using (user_id = auth.uid());
+
+drop policy if exists "notifications update own" on public.notifications;
+create policy "notifications update own" on public.notifications
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "notifications delete own" on public.notifications;
+create policy "notifications delete own" on public.notifications
+  for delete to authenticated using (user_id = auth.uid());
+
+-- A staff request (status = 'pending') alerts every administrator.
+create or replace function public.notify_visit_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status <> 'pending' then
+    return new;
+  end if;
+
+  insert into public.notifications (user_id, kind, title, body, link)
+  select p.id,
+         'visit_request',
+         'New visit request',
+         format(
+           '%s requested a visit to %s on %s.',
+           coalesce(new.assigned_to_name, 'A staff member'),
+           coalesce(new.retailer_name, 'a retailer'),
+           to_char(new.scheduled_date, 'DD Mon YYYY')
+         ),
+         '/visits'
+    from public.profiles p
+   where p.role = 'admin'
+     and (auth.uid() is null or p.id <> new.created_by_id);
+
+  return new;
+end;
+$$;
+
+drop trigger if exists visits_notify_request on public.visits;
+create trigger visits_notify_request
+  after insert on public.visits
+  for each row execute function public.notify_visit_request();
+
+-- When an administrator moves a request out of 'pending', the requester hears
+-- back. A staff member withdrawing their own request is not notified.
+create or replace function public.notify_visit_decision()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requester uuid := coalesce(old.created_by_id, new.created_by_id);
+  approved  boolean := new.status = 'scheduled';
+begin
+  if old.status = 'pending'
+     and new.status <> 'pending'
+     and requester is not null
+     and (auth.uid() is null or auth.uid() <> requester) then
+    insert into public.notifications (user_id, kind, title, body, link)
+    values (
+      requester,
+      case when approved then 'visit_approved' else 'visit_declined' end,
+      case when approved then 'Visit approved' else 'Visit declined' end,
+      format(
+        'Your visit to %s on %s was %s.',
+        coalesce(new.retailer_name, 'a retailer'),
+        to_char(new.scheduled_date, 'DD Mon YYYY'),
+        case when approved then 'approved' else 'declined' end
+      ),
+      '/visits'
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists visits_notify_decision on public.visits;
+create trigger visits_notify_decision
+  after update on public.visits
+  for each row execute function public.notify_visit_decision();
+
+-- ---------------------------------------------------------------------------
 -- RPC functions used by the frontend client
 -- ---------------------------------------------------------------------------
 
@@ -403,7 +516,7 @@ declare
   affected  int := 0;
   n         int;
 begin
-  if p_table not in ('retailers', 'visits', 'interactions', 'profiles') then
+  if p_table not in ('retailers', 'visits', 'interactions', 'profiles', 'notifications') then
     raise exception 'bulk_update: unknown table %', p_table;
   end if;
 

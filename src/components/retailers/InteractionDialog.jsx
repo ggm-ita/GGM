@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageCircle, Phone, MapPin, Mail, StickyNote, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { completeVisit } from "@/lib/visits";
 import { cn } from "@/lib/utils";
 
 const TYPES = [
@@ -59,6 +60,11 @@ export default function InteractionDialog({ open, onOpenChange, retailer, onSave
         staff_name: user?.full_name || user?.email || "",
         staff_email: user?.email || "",
       });
+      /* Logging a visit from the timeline counts as the visit taking place, so
+         the planned visit is closed and the shop leaves the Upcoming list. */
+      if (type === "visit") {
+        await completeVisit({ retailer, user, outcome: summary.trim() });
+      }
       onSaved?.();
       onOpenChange(false);
     } catch (err) {
@@ -97,6 +103,11 @@ export default function InteractionDialog({ open, onOpenChange, retailer, onSave
                 </button>
               ))}
             </div>
+            {type === "visit" && (
+              <p className="text-[11px] text-muted-foreground">
+                Saving this will also mark the shop as visited and clear it from the Upcoming list.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-2">

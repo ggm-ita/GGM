@@ -28,6 +28,7 @@ const TABLES = {
   Retailer: "retailers",
   Visit: "visits",
   Interaction: "interactions",
+  Notification: "notifications",
   User: "profiles",
 };
 

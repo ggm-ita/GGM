@@ -13,7 +13,9 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import NotificationBell from "@/components/layout/NotificationBell";
 import { useAuth } from "@/lib/AuthContext";
+import { useNotifications } from "@/lib/notifications";
 import { GGM_LOGO } from "@/lib/brand";
 import { scopeLabel } from "@/lib/italy";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,7 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const notifications = useNotifications(user);
   const isAdmin = user?.role === "admin";
   const items = NAV.filter((item) => !item.admin || isAdmin);
   const name = user?.full_name || user?.email || "Staff";
@@ -55,8 +58,10 @@ export default function AppShell() {
         : "text-muted-foreground hover:bg-secondary hover:text-foreground"
     );
 
+  const bell = <NotificationBell {...notifications} />;
+
   const brand = (
-    <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
+    <div className="flex items-center gap-3 border-b border-border px-4 py-4">
       <img src={GGM_LOGO} alt="GGM" className="h-9 w-auto" />
       <div className="leading-tight min-w-0">
         <div className="font-heading text-lg text-primary">Retailer Hub</div>
@@ -64,6 +69,7 @@ export default function AppShell() {
           Follow-up dashboard
         </div>
       </div>
+      <div className="ml-auto shrink-0">{bell}</div>
     </div>
   );
 
@@ -114,6 +120,7 @@ export default function AppShell() {
         </button>
         <img src={GGM_LOGO} alt="GGM" className="h-7 w-auto" />
         <span className="font-heading text-base text-primary">Retailer Hub</span>
+        <div className="ml-auto shrink-0">{bell}</div>
       </header>
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>

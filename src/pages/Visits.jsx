@@ -54,6 +54,7 @@ export default function Visits() {
   const [markVisit, setMarkVisit] = useState(null);
   const [notice, setNotice] = useState("");
   const [staff, setStaff] = useState([]);
+  const [staffFilter, setStaffFilter] = useState("all");
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -96,24 +97,52 @@ export default function Visits() {
     if (timeline !== null) loadTimeline();
   }, [load, loadTimeline, timeline]);
 
+  /* Admins can narrow the whole page down to one staff member's rounds. */
+  const filteredVisits = useMemo(() => {
+    if (staffFilter === "all") return visits;
+    if (staffFilter === "unassigned") return visits.filter((v) => !v.assigned_to);
+    return visits.filter((v) => String(v.assigned_to || "").toLowerCase() === staffFilter);
+  }, [visits, staffFilter]);
+
   const groups = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return {
-      upcoming: visits
+      upcoming: filteredVisits
         .filter((v) => v.status === "scheduled" && v.scheduled_date >= today)
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
-      pending: visits
+      pending: filteredVisits
         .filter((v) => v.status === "pending")
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
-      overdue: visits
+      overdue: filteredVisits
         .filter((v) => v.status === "scheduled" && v.scheduled_date < today)
         .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date)),
-      completed: visits
+      completed: filteredVisits
         .filter((v) => v.status === "completed")
         .sort((a, b) => (b.completed_at || "").localeCompare(a.completed_at || "")),
-      cancelled: visits.filter((v) => v.status === "cancelled"),
+      cancelled: filteredVisits.filter((v) => v.status === "cancelled"),
     };
-  }, [visits]);
+  }, [filteredVisits]);
+
+  /* The Upcoming list is grouped by the staff member it was assigned to, so an
+     administrator can see at a glance who owns which round. */
+  const upcomingStaffGroups = useMemo(() => {
+    if (!isAdmin || tab !== "upcoming") return null;
+    const map = new Map();
+    (groups.upcoming || []).forEach((visit) => {
+      const email = String(visit.assigned_to || "").toLowerCase();
+      const key = email || "unassigned";
+      if (!map.has(key)) {
+        const member = staff.find((s) => String(s.email || "").toLowerCase() === email);
+        map.set(key, {
+          key,
+          name: member?.full_name || visit.assigned_to_name || visit.assigned_to || "Unassigned",
+          items: [],
+        });
+      }
+      map.get(key).items.push(visit);
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [isAdmin, tab, groups, staff]);
 
   const cancelVisit = async (visit) => {
     await db.entities.Visit.update(visit.id, { status: "cancelled" });
@@ -219,6 +248,26 @@ export default function Visits() {
         )
       ) : (
         <>
+          {isAdmin && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Staff</span>
+              <select
+                value={staffFilter}
+                onChange={(e) => setStaffFilter(e.target.value)}
+                aria-label="Filter visits by staff member"
+                className="h-9 min-w-[170px] rounded-lg border border-border bg-secondary px-2 text-xs"
+              >
+                <option value="all">All staff</option>
+                <option value="unassigned">Unassigned</option>
+                {staff.map((s) => (
+                  <option key={s.id || s.email} value={String(s.email || "").toLowerCase()}>
+                    {s.full_name || s.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="ggm-scroll mb-4 flex overflow-x-auto rounded-lg border border-border">
             {TABS.map((item) => (
               <button
@@ -244,18 +293,42 @@ export default function Visits() {
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
               </div>
             ) : current.length ? (
-              current.map((visit) => (
-                <VisitRow
-                  key={visit.id}
-                  visit={visit}
-                  overdue={tab === "overdue"}
-                  canApprove={isAdmin}
-                  onMarkVisited={setMarkVisit}
-                  onCancel={cancelVisit}
-                  onApprove={approveVisit}
-                  onDecline={declineVisit}
-                />
-              ))
+              upcomingStaffGroups ? (
+                upcomingStaffGroups.map((group) => (
+                  <div key={group.key}>
+                    <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2">
+                      <span className="text-xs font-semibold text-primary">{group.name}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {group.items.length}
+                      </span>
+                    </div>
+                    {group.items.map((visit) => (
+                      <VisitRow
+                        key={visit.id}
+                        visit={visit}
+                        canApprove={isAdmin}
+                        onMarkVisited={setMarkVisit}
+                        onCancel={cancelVisit}
+                        onApprove={approveVisit}
+                        onDecline={declineVisit}
+                      />
+                    ))}
+                  </div>
+                ))
+              ) : (
+                current.map((visit) => (
+                  <VisitRow
+                    key={visit.id}
+                    visit={visit}
+                    overdue={tab === "overdue"}
+                    canApprove={isAdmin}
+                    onMarkVisited={setMarkVisit}
+                    onCancel={cancelVisit}
+                    onApprove={approveVisit}
+                    onDecline={declineVisit}
+                  />
+                ))
+              )
             ) : (
               <p className="px-4 py-10 text-center text-sm text-muted-foreground">
                 {tab === "pending"
