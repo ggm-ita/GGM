@@ -27,10 +27,31 @@ export default function VisitRow({
   onCancel,
   onApprove,
   onDecline,
+  selectable,
+  selected,
+  onToggleSelect,
 }) {
   const isPending = visit.status === "pending";
   return (
-    <div className="grid gap-3 border-b border-border p-4 last:border-b-0 sm:flex sm:items-start sm:gap-4">
+    <div
+      className={cn(
+        "grid gap-3 border-b border-border p-4 last:border-b-0 sm:flex sm:items-start sm:gap-4",
+        selected && "bg-primary/5"
+      )}
+    >
+      {selectable && (
+        <label className="flex cursor-pointer items-center gap-2 sm:pt-0.5">
+          <input
+            type="checkbox"
+            checked={Boolean(selected)}
+            onChange={() => onToggleSelect(visit)}
+            aria-label={`Select visit for ${visit.retailer_name}`}
+            className="h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+          />
+          <span className="text-xs text-muted-foreground sm:hidden">Select</span>
+        </label>
+      )}
+
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link

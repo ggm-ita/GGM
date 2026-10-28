@@ -14,10 +14,12 @@ import {
   CalendarDays,
   CalendarPlus,
   CalendarRange,
+  Check,
   List,
   ListChecks,
   Loader2,
   Upload,
+  X,
 } from "lucide-react";
 import { fetchAllRetailers, fetchLastContacts } from "@/lib/retailers";
 import { fetchStaff, fetchVisits } from "@/lib/activity";
@@ -56,6 +58,8 @@ export default function Visits() {
   const [staff, setStaff] = useState([]);
   const [staffFilter, setStaffFilter] = useState("all");
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [selected, setSelected] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     const page = await db.entities.Visit.filter({}, { sort: "scheduled_date", limit: 500 });
@@ -80,6 +84,11 @@ export default function Visits() {
     if (!isAdmin) return;
     fetchStaff().then(setStaff);
   }, [isAdmin]);
+
+  /* A selection only makes sense inside the list it was made in. */
+  useEffect(() => {
+    setSelected([]);
+  }, [tab, staffFilter, view]);
 
   /* The month plan needs every visit, so it is read once, paged, when first opened. */
   const loadTimeline = useCallback(() => {
@@ -162,6 +171,39 @@ export default function Visits() {
     setNotice(`Visit request for ${visit.retailer_name} declined.`);
     refresh();
   };
+
+  /* Bulk approvals: the admin ticks the requests to accept and they all move to
+     'scheduled' in a single round-trip. */
+  const toggleSelected = (visit) =>
+    setSelected((prev) =>
+      prev.includes(visit.id) ? prev.filter((id) => id !== visit.id) : [...prev, visit.id]
+    );
+
+  const bulkUpdateStatus = async (ids, status, message) => {
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      await db.entities.Visit.bulkUpdate(ids.map((id) => ({ id, status })));
+      setSelected([]);
+      setNotice(message(ids.length));
+      refresh();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const approveSelected = () =>
+    bulkUpdateStatus(selected, "scheduled", (n) => `${n} visit requests approved.`);
+
+  const declineSelected = () =>
+    bulkUpdateStatus(selected, "cancelled", (n) => `${n} visit requests declined.`);
+
+  const approveAll = () =>
+    bulkUpdateStatus(
+      current.map((visit) => visit.id),
+      "scheduled",
+      (n) => `${n} visit requests approved.`
+    );
 
   const openPlanner = (dateKey = null) => {
     setPlanDate(dateKey);
@@ -287,6 +329,46 @@ export default function Visits() {
             ))}
           </div>
 
+          {isAdmin && tab === "pending" && current.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+                <input
+                  type="checkbox"
+                  aria-label="Select all visit requests"
+                  className="h-4 w-4 accent-[hsl(var(--primary))]"
+                  checked={selected.length === current.length}
+                  onChange={(e) =>
+                    setSelected(e.target.checked ? current.map((visit) => visit.id) : [])
+                  }
+                />
+                {selected.length ? `${selected.length} selected` : "Select all"}
+              </label>
+              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                <Button size="sm" disabled={!selected.length || bulkBusy} onClick={approveSelected}>
+                  {bulkBusy ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Approve selected
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selected.length || bulkBusy}
+                  onClick={declineSelected}
+                >
+                  <X className="w-4 h-4 mr-2" /> Decline selected
+                </Button>
+                {current.length > 1 && (
+                  <Button size="sm" variant="outline" disabled={bulkBusy} onClick={approveAll}>
+                    <Check className="w-4 h-4 mr-2" /> Approve all ({current.length})
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             {loading ? (
               <div className="grid place-items-center py-12">
@@ -322,6 +404,9 @@ export default function Visits() {
                     visit={visit}
                     overdue={tab === "overdue"}
                     canApprove={isAdmin}
+                    selectable={isAdmin && tab === "pending"}
+                    selected={selected.includes(visit.id)}
+                    onToggleSelect={toggleSelected}
                     onMarkVisited={setMarkVisit}
                     onCancel={cancelVisit}
                     onApprove={approveVisit}
