@@ -10,9 +10,10 @@ export default function MonthGrid({ days, selectedKey, today, onSelect }) {
         {WEEKDAYS.map((label) => (
           <div
             key={label}
-            className="bg-secondary px-1 py-1.5 text-center text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+            className="bg-secondary px-0.5 py-1.5 text-center text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:px-1"
           >
-            {label}
+            <span className="sm:hidden">{label.charAt(0)}</span>
+            <span className="hidden sm:inline">{label}</span>
           </div>
         ))}
       </div>
@@ -28,7 +29,7 @@ export default function MonthGrid({ days, selectedKey, today, onSelect }) {
               type="button"
               onClick={() => onSelect(day.key)}
               className={cn(
-                "min-h-[72px] p-1.5 text-left lg:min-h-[96px]",
+                "min-h-[56px] p-1 text-left sm:min-h-[72px] sm:p-1.5 lg:min-h-[96px]",
                 day.inMonth ? "bg-card" : "bg-secondary/50",
                 selectedKey === day.key && "relative z-10 ring-1 ring-inset ring-primary"
               )}
@@ -76,10 +77,17 @@ export default function MonthGrid({ days, selectedKey, today, onSelect }) {
               )}
 
               {followUps > 0 && (
-                <span className="mt-1 block truncate text-[9px] text-muted-foreground">
-                  {pending > 0 ? <span className="text-destructive">{pending} late · </span> : null}
-                  {followUps} follow-up{followUps === 1 ? "" : "s"}
-                </span>
+                <>
+                  {/* On phones the long "N follow-ups" line was blowing the cell
+                      width out; it collapses to a small count badge. */}
+                  <span className="mt-1 inline-block rounded bg-secondary px-1 font-mono text-[9px] leading-4 text-muted-foreground sm:hidden">
+                    {followUps}
+                  </span>
+                  <span className="mt-1 hidden truncate text-[9px] text-muted-foreground sm:block">
+                    {pending > 0 ? <span className="text-destructive">{pending} late · </span> : null}
+                    {followUps} follow-up{followUps === 1 ? "" : "s"}
+                  </span>
+                </>
               )}
             </button>
           );

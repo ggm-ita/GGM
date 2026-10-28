@@ -404,41 +404,66 @@ drop policy if exists "notifications delete own" on public.notifications;
 create policy "notifications delete own" on public.notifications
   for delete to authenticated using (user_id = auth.uid());
 
--- A staff request (status = 'pending') alerts every administrator.
-create or replace function public.notify_visit_request()
+-- A staff request (status = 'pending') alerts every administrator. This is a
+-- statement-level trigger with a transition table, so a whole batch of pending
+-- visits (a "plan by city" round) raises a single notification instead of one
+-- per shop.
+drop trigger if exists visits_notify_request on public.visits;
+drop function if exists public.notify_visit_request();
+
+create or replace function public.notify_visit_requests()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  pending_count  integer;
+  who            text;
+  first_retailer text;
+  first_date     date;
 begin
-  if new.status <> 'pending' then
-    return new;
+  select count(*),
+         (array_agg(coalesce(assigned_to_name, 'A staff member')))[1],
+         (array_agg(coalesce(retailer_name, 'a retailer')))[1],
+         (array_agg(scheduled_date))[1]
+    into pending_count, who, first_retailer, first_date
+    from new_rows
+   where status = 'pending';
+
+  if pending_count = 0 then
+    return null;
   end if;
 
   insert into public.notifications (user_id, kind, title, body, link)
   select p.id,
          'visit_request',
-         'New visit request',
-         format(
-           '%s requested a visit to %s on %s.',
-           coalesce(new.assigned_to_name, 'A staff member'),
-           coalesce(new.retailer_name, 'a retailer'),
-           to_char(new.scheduled_date, 'DD Mon YYYY')
-         ),
+         case when pending_count = 1 then 'New visit request' else 'New visit requests' end,
+         case
+           when pending_count = 1 then
+             format(
+               '%s requested a visit to %s on %s.',
+               who, first_retailer, to_char(first_date, 'DD Mon YYYY')
+             )
+           else
+             format(
+               '%s requested %s visits, the first on %s.',
+               who, pending_count, to_char(first_date, 'DD Mon YYYY')
+             )
+         end,
          '/visits'
     from public.profiles p
    where p.role = 'admin'
-     and (auth.uid() is null or p.id <> new.created_by_id);
+     and (auth.uid() is null or p.id <> auth.uid());
 
-  return new;
+  return null;
 end;
 $$;
 
-drop trigger if exists visits_notify_request on public.visits;
 create trigger visits_notify_request
   after insert on public.visits
-  for each row execute function public.notify_visit_request();
+  referencing new table as new_rows
+  for each statement execute function public.notify_visit_requests();
 
 -- When an administrator moves a request out of 'pending', the requester hears
 -- back. A staff member withdrawing their own request is not notified.

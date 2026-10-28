@@ -28,7 +28,7 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
   const [staff, setStaff] = useState([]);
   const [selected, setSelected] = useState([]);
   const [q, setQ] = useState("");
-  const [city, setCity] = useState("");
+  const [cities, setCities] = useState([]);
   const [date, setDate] = useState(initialDate || moment().format("YYYY-MM-DD"));
   const [time, setTime] = useState("09:00");
   const [weeks, setWeeks] = useState(1);
@@ -41,7 +41,7 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
     if (!open) return;
     setSelected([]);
     setQ("");
-    setCity("");
+    setCities([]);
     setDate(initialDate || moment().format("YYYY-MM-DD"));
     setTime("09:00");
     setWeeks(1);
@@ -66,10 +66,13 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
     };
   }, [open, isAdmin]);
 
-  const cities = useMemo(() => cityStats(retailers || []), [retailers]);
+  const cityOptions = useMemo(() => cityStats(retailers || []), [retailers]);
   const matches = useMemo(
-    () => (retailers || []).filter((r) => (!city || r.city === city) && matchesQuery(r, q)),
-    [retailers, city, q]
+    () =>
+      (retailers || []).filter(
+        (r) => (!cities.length || cities.includes(r.city)) && matchesQuery(r, q)
+      ),
+    [retailers, cities, q]
   );
   const shown = matches.slice(0, VISIBLE);
   const chosen = useMemo(
@@ -79,6 +82,33 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
 
   const toggle = (id) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  /* Tapping a city adds or removes every shop in it, so a whole town can be
+     planned in one tap and several towns can be combined. */
+  const shopsByCity = useMemo(() => {
+    const map = new Map();
+    (retailers || []).forEach((r) => {
+      if (!map.has(r.city)) map.set(r.city, []);
+      map.get(r.city).push(r.id);
+    });
+    return map;
+  }, [retailers]);
+
+  const toggleCity = (name) => {
+    const ids = shopsByCity.get(name) || [];
+    const on = cities.includes(name);
+    setCities(on ? cities.filter((c) => c !== name) : [...cities, name]);
+    const next = new Set(selected);
+    ids.forEach((id) => (on ? next.delete(id) : next.add(id)));
+    setSelected([...next]);
+  };
+
+  const clearCities = () => {
+    const added = new Set();
+    cities.forEach((name) => (shopsByCity.get(name) || []).forEach((id) => added.add(id)));
+    setCities([]);
+    setSelected((prev) => prev.filter((id) => !added.has(id)));
+  };
 
   const save = async () => {
     if (!chosen.length) {
@@ -93,7 +123,9 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
     setError("");
     try {
       const assignee = staff.find((s) => s.email === assignedTo);
-      const assigneeName = assignee?.full_name || assignee?.email || assignedTo;
+      const assigneeName = isAdmin
+        ? assignee?.full_name || assignee?.email || assignedTo
+        : user?.full_name || user?.email || assignedTo;
       const payload = [];
       chosen.forEach((retailer) => {
         for (let week = 0; week < weeks; week += 1) {
@@ -105,7 +137,9 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
             region: retailer.region,
             scheduled_date: moment(date).add(week, "weeks").format("YYYY-MM-DD"),
             scheduled_time: time,
-            status: "scheduled",
+            /* Staff rounds wait for an administrator's approval; approving keeps
+               the requested date, so the round lands on the day that was asked for. */
+            status: isAdmin ? "scheduled" : "pending",
             assigned_to: assignedTo,
             assigned_to_name: assigneeName,
             notes: notes.trim(),
@@ -130,12 +164,10 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="ggm-scroll max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading text-primary">
-            Plan visits for several retailers
-          </DialogTitle>
+          <DialogTitle className="font-heading text-primary">Plan visits by city</DialogTitle>
           <DialogDescription>
-            Pick the shops for this round and plan them on the same day, repeating weekly if you need
-            a full cycle.
+            Tap the cities for this round — every shop in them is added. Untick any shop you don't
+            need, then plan them on the same day, repeating weekly if you need a full cycle.
           </DialogDescription>
         </DialogHeader>
 
@@ -207,13 +239,48 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
 
           <div className="grid gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Label className="shrink-0">Retailers</Label>
+              <Label className="shrink-0">Cities</Label>
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[11px] text-primary">
+                {cities.length ? `${cities.length} selected` : "all"}
+              </span>
+              {cities.length > 0 && (
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={clearCities}>
+                  Clear cities
+                </Button>
+              )}
+            </div>
+
+            <div className="ggm-scroll flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+              {cityOptions.map((option) => {
+                const on = cities.includes(option.city);
+                return (
+                  <button
+                    key={option.city}
+                    type="button"
+                    onClick={() => toggleCity(option.city)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                      on
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border bg-secondary/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {on && <Check className="w-3 h-3" />}
+                    {option.city}
+                    <span className="font-mono text-[10px] opacity-70">{option.total}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Label className="shrink-0">Shops</Label>
               <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[11px] text-primary">
                 {selected.length} selected
               </span>
               <span className="ml-auto flex gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setSelected(matches.map((r) => r.id))}>
-                  Select all matching
+                  Select all shown
                 </Button>
                 <Button
                   variant="ghost"
@@ -226,28 +293,14 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <div className="relative min-w-[180px] flex-1">
-                <Search className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search name, shop, city or ID"
-                  className="pl-9"
-                />
-              </div>
-              <select
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className="h-10 min-w-[140px] rounded-lg border border-border bg-secondary px-2 text-xs"
-              >
-                <option value="">All cities</option>
-                {cities.map((option) => (
-                  <option key={option.city} value={option.city}>
-                    {option.city} ({option.total})
-                  </option>
-                ))}
-              </select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search name, shop, city or ID"
+                className="pl-9"
+              />
             </div>
 
             <div className="ggm-scroll max-h-[280px] overflow-y-auto rounded-lg border border-border">
@@ -311,7 +364,7 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="mr-auto font-mono text-[11px] text-muted-foreground">
-              {chosen.length} retailers × {weeks} week{weeks > 1 ? "s" : ""} = {total} visits
+              {chosen.length} shops × {weeks} week{weeks > 1 ? "s" : ""} = {total} visits
             </span>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -322,7 +375,7 @@ export default function MultiVisitDialog({ open, onOpenChange, initialDate, onSa
               ) : (
                 <ListChecks className="w-4 h-4 mr-2" />
               )}
-              Plan {total || ""} visits
+              {isAdmin ? "Plan" : "Request"} {total || ""} visits
             </Button>
           </div>
         </div>

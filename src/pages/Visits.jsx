@@ -186,16 +186,16 @@ export default function Visits() {
               Plan the rounds, then mark each retailer as visited.
             </p>
           </div>
-          {isAdmin && (
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdmin && (
               <Button size="sm" variant="outline" onClick={() => setUploadOpen(true)}>
                 <Upload className="w-4 h-4 mr-2" /> Upload schedule
               </Button>
-              <Button size="sm" variant="outline" onClick={() => openPlanner()}>
-                <ListChecks className="w-4 h-4 mr-2" /> Plan multiple
-              </Button>
-            </div>
-          )}
+            )}
+            <Button size="sm" variant="outline" onClick={() => openPlanner()}>
+              <ListChecks className="w-4 h-4 mr-2" /> Plan by city
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,7 @@ export default function Visits() {
             visits={timeline}
             retailers={retailers}
             lastContacts={lastContacts}
-            onPlanDay={isAdmin ? openPlanner : null}
+            onPlanDay={openPlanner}
           />
         )
       ) : (
@@ -357,7 +357,11 @@ export default function Visits() {
         onOpenChange={setMultiOpen}
         initialDate={planDate}
         onSaved={(count) => {
-          setNotice(`${count} visits planned.`);
+          setNotice(
+            isAdmin
+              ? `${count} visits planned.`
+              : `${count} visit requests sent — an admin will approve them.`
+          );
           refresh();
         }}
       />

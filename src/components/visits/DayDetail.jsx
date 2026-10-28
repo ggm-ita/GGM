@@ -69,7 +69,7 @@ export default function DayDetail({ day, retailersById, onPlanDay }) {
         <div>
           <h3 className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Visits</h3>
           {visits.length ? (
-            <ul className="mt-1.5 grid gap-1.5">
+            <ul className="ggm-scroll mt-1.5 grid max-h-72 gap-1.5 overflow-y-auto md:max-h-none md:overflow-visible">
               {visits.map((visit) => {
                 const retailer = retailersById?.get(visit.retailer_id);
                 const status = STATUS[visit.status] || STATUS.scheduled;
@@ -117,7 +117,7 @@ export default function DayDetail({ day, retailersById, onPlanDay }) {
             Follow-ups due
           </h3>
           {followUps.length ? (
-            <ul className="mt-1.5 grid gap-1.5">
+            <ul className="ggm-scroll mt-1.5 grid max-h-72 gap-1.5 overflow-y-auto md:max-h-none md:overflow-visible">
               {followUps.map(({ retailer, info }) => (
                 <li
                   key={retailer.id}

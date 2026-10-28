@@ -93,7 +93,7 @@ This creates:
 | row level security policies | territory-limited reads, admin-only writes |
 | `on_auth_user_created` trigger | creates the `profiles` row for each new account |
 | `set_attribution` trigger | stamps `created_by_id` (and `staff_email`) from the session, never from the request body |
-| `notify_visit_request` / `notify_visit_decision` triggers | raise in-app notifications when a visit is requested and when an admin approves or declines it |
+| `notify_visit_requests` / `notify_visit_decision` triggers | raise in-app notifications when visits are requested (one alert per batch, however many shops) and when an admin approves or declines each one |
 | storage bucket `public` | file uploads, capped at 10 MB and limited to CSV/PDF/images |
 
 > You can re-run this file any time; it never duplicates objects or wipes data.
@@ -275,7 +275,11 @@ Three ways to get data in:
   `customer_id` and updated, new ones inserted.
 - **Data Management page → Balance update** (admin): upload a balance-only file to refresh
   `balance` and `balance_updated_at`.
-- **Visits → Schedule upload**: bulk-create visits from a schedule file.
+- **Visits → Schedule upload** (admin): bulk-create visits from a schedule file.
+- **Visits → Plan by city**: pick one or more cities (every shop in them is added, and individual
+  shops can be unticked), choose the date and repeat. An admin's round is scheduled straight away;
+  a staff member's round is stored as a `pending` request and lands on the very date that was asked
+  for once an admin approves it.
 
 To carry data over from Base44, export each entity to CSV there and re-import it here.
 
