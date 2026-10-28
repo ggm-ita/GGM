@@ -49,7 +49,7 @@ export default function Staff() {
           </p>
         </div>
         <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-2" /> Add user
+          <UserPlus className="w-4 h-4 mr-2" /> Create user
         </Button>
       </div>
 

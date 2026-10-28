@@ -7,7 +7,6 @@ import {
   CalendarCheck,
   ClipboardList,
   Database,
-  Upload,
   Users,
   LogOut,
   Menu,
@@ -25,8 +24,7 @@ const NAV = [
   { to: "/retailers", label: "Retailers", icon: Store },
   { to: "/visits", label: "Visits", icon: CalendarCheck },
   { to: "/reports", label: "Reports", icon: ClipboardList, admin: true },
-  { to: "/retailer-data", label: "Data", icon: Database, admin: true },
-  { to: "/balance", label: "Balances", icon: Upload, admin: true },
+  { to: "/retailer-data", label: "Data Management", icon: Database, admin: true },
   { to: "/staff", label: "Staff", icon: Users, admin: true },
 ];
 

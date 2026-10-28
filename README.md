@@ -110,9 +110,10 @@ The app must never let anyone create their own account.
    enabled (staff still sign in with email + password).
 2. Turn **Enable sign-ups** (a.k.a. *Allow new users to sign up*) **OFF**. With this off,
    the Supabase `POST /auth/v1/signup` endpoint refuses every request, so no account can
-   be created from outside — invitations from an admin still work.
-3. Keep **Confirm email** switched **ON** so invited staff must open the invitation
-   e-mail once and set a password.
+   be created from outside — an admin creating an account from the Staff page still works.
+3. **Confirm email** can stay on or off: accounts an admin creates from the Staff page are
+   created already confirmed, with the password the admin sets, so no e-mail round-trip is
+   needed.
 4. Under **Authentication → Sign In / Providers**, leave **Email** as the only enabled
    provider. The app signs staff in with email + password and nothing else, so any
    other enabled provider is surface you do not need.
@@ -145,7 +146,8 @@ You can finish this after your first deploy — see [step 9](#9-point-supabase-a
 Because public sign-up is disabled, your first account is created from the dashboard.
 
 1. Go to **Authentication → Users → Add user → Create new user**. Enter your email and a
-   password and confirm it. (This is the same path the `invite-user` function uses later.)
+   password and confirm it. (This is the same path the `invite-user` function uses later
+   when an admin creates a staff account.)
 2. In **SQL Editor**, promote that account:
 
    ```sql
@@ -257,8 +259,7 @@ make sure:
 - **Site URL** is your Vercel domain, e.g. `https://ggm-retailer-hub.vercel.app`
 - **Redirect URLs** include `https://ggm-retailer-hub.vercel.app/**`
 
-Otherwise invitation and password-reset e-mails will redirect to `localhost` and the
-flow fails.
+Otherwise password-reset e-mails will redirect to `localhost` and the flow fails.
 
 ---
 
@@ -266,12 +267,12 @@ flow fails.
 
 Three ways to get data in:
 
-- **Retailer data page → Import** (admin): upload a CSV/XLSX. Columns are matched by header
+- **Data Management page → Import** (admin): upload a CSV/XLSX. Columns are matched by header
   name and Italian aliases (`cliente`, `insegna`, `indirizzo`, `cap`, `citta`,
   `provincia`, `regione`, `cellulare`, `saldo`, …). Existing rows are matched on
   `customer_id` and updated, new ones inserted.
-- **Balance page** (admin): upload a balance-only file to refresh `balance` and
-  `balance_updated_at`.
+- **Data Management page → Balance update** (admin): upload a balance-only file to refresh
+  `balance` and `balance_updated_at`.
 - **Visits → Schedule upload**: bulk-create visits from a schedule file.
 
 To carry data over from Base44, export each entity to CSV there and re-import it here.
@@ -320,7 +321,7 @@ Notes:
 
 ## 12. Create accounts (admin only)
 
-The **Staff → Add user** dialog calls a Supabase Edge Function named `invite-user`. That
+The **Staff → Create user** dialog calls a Supabase Edge Function named `invite-user`. That
 function is **required**: it is the only way accounts are created, and it re-checks the
 caller's role on the server before it uses the service-role key — so a non-admin who
 manages to call it gets a `403`.
@@ -339,14 +340,16 @@ supabase functions deploy invite-user
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are provided to the
 function by Supabase automatically; you do not set them yourself.
 
-Then, as an admin: **Staff → Add user**, enter the full name, the email, and choose the role
-and territory, then save. The person receives an invitation e-mail, sets a password from it,
-and sees only the retailers in the territory you assigned.
+Then, as an admin: **Staff → Create user**, enter the full name, the e-mail, a password
+(at least 8 characters) and choose the role and territory, then save. The account is
+created straight away — there is no invitation e-mail — so the staff member can sign in
+with the password you set and only sees the retailers in the territory you assigned.
 
-> Re-deploy the function after pulling this change: it now requires the staff member's name
-> along with the e-mail and stores it on the profile.
+> Re-deploy the function after pulling this change: it now creates the account directly
+> with the password you choose (`createUser`, no invitation e-mail) instead of sending an
+> invitation link.
 
-> If the function is not deployed, adding a user fails with
+> If the function is not deployed, creating a user fails with
 > *"Could not reach the invite-user function…"*. That is intentional — there is no
 > client-side fallback that would let anyone create an account.
 
@@ -401,18 +404,18 @@ The scope was never assigned. As admin, open **Staff → (user) → Territory & 
 *All Italy*, some regions or some provinces. Until then the user sees nothing — that is
 deliberate.
 
-### "Invalid login credentials" for a user you invited
+### "Invalid login credentials" for a user you created
 
-They must open the invitation e-mail once to set a password (or use *Forgot password*).
-Accounts created from the Supabase dashboard **before** the schema was applied may lack a
-`profiles` row; the app creates one automatically on first sign-in.
+They must sign in with the password the admin set when creating the account (or use
+*Forgot password*). Accounts created from the Supabase dashboard **before** the schema was
+applied may lack a `profiles` row; the app creates one automatically on first sign-in.
 
 ### Build fails on Vercel with "supabaseUrl is required"
 
 The environment variables were not set (or were added after the last build). Add them in
 Vercel → Settings → Environment Variables and redeploy.
 
-### Password-reset / invitation e-mails land on localhost
+### Password-reset e-mails land on localhost
 
 Fix the **Site URL** and **Redirect URLs** in Supabase (step 9).
 
@@ -425,7 +428,7 @@ your own provider under **Project Settings → Auth → SMTP Settings**.
 
 - [src/api/supabaseClient.js](src/api/supabaseClient.js) — the data layer: entities
   (`filter`, `list`, `get`, `count`, `create`, `update`, `delete`, `bulkCreate`,
-  `bulkUpdate`, `aggregate`), `auth`, `users.inviteUser`, `integrations.Core.UploadFile`.
+  `bulkUpdate`, `aggregate`), `auth`, `users.createUser`, `integrations.Core.UploadFile`.
 - [supabase/schema.sql](supabase/schema.sql) — the whole backend definition.
 - [supabase/functions/invite-user/index.ts](supabase/functions/invite-user/index.ts) — the
   admin-only account-creation function.

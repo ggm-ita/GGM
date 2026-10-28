@@ -4,7 +4,11 @@
 // The only way to create an account. Public sign-up is disabled and the client
 // no longer exposes any registration API, so this function is the single,
 // server-verified provisioning path: it re-checks that the caller is an
-// administrator before it touches the service-role key.
+// administrator before it touches the service-role key, then creates the
+// account directly with the password the admin chose (no invitation e-mail).
+//
+// The name `invite-user` is kept so existing deployments and configuration stay
+// valid; see README "Create accounts (admin only)".
 //
 // Deploy:  supabase functions deploy invite-user
 // (see README "Create accounts (admin only)")
@@ -64,8 +68,8 @@ Deno.serve(async (req) => {
     return json({ error: "Only administrators can create users." }, 403);
   }
 
-  // 3. Validate the request, then invite.
-  let payload: { email?: unknown; role?: unknown; fullName?: unknown; redirectTo?: unknown };
+  // 3. Validate the request, then create the account.
+  let payload: { email?: unknown; password?: unknown; role?: unknown; fullName?: unknown };
   try {
     payload = await req.json();
   } catch {
@@ -73,25 +77,33 @@ Deno.serve(async (req) => {
   }
 
   const email = String(payload?.email ?? "").trim().toLowerCase();
+  const password = String(payload?.password ?? "");
   const fullName = String(payload?.fullName ?? "").trim();
   const role = payload?.role === "admin" ? "admin" : "user";
-  const redirectTo =
-    typeof payload?.redirectTo === "string" && payload.redirectTo.startsWith("http")
-      ? payload.redirectTo
-      : undefined;
 
   if (!EMAIL_RE.test(email)) return json({ error: "A valid email address is required." }, 400);
   if (!fullName) return json({ error: "The staff member's name is required." }, 400);
   if (fullName.length > 120) return json({ error: "That name is too long." }, 400);
+  if (password.length < 8) {
+    return json({ error: "Choose a password of at least 8 characters." }, 400);
+  }
 
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role, full_name: fullName },
-    redirectTo,
+  // createUser (not inviteUserByEmail): the administrator sets the password and
+  // the account is usable right away, with no e-mail round-trip.
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role, full_name: fullName },
   });
-  if (inviteError) {
-    const alreadyExists = /already|exists|registered/i.test(inviteError.message || "");
+  if (createError) {
+    const alreadyExists = /already|exists|registered/i.test(createError.message || "");
     return json(
-      { error: alreadyExists ? "That email already has an account." : "The invitation could not be sent." },
+      {
+        error: alreadyExists
+          ? "That email already has an account."
+          : "The account could not be created.",
+      },
       alreadyExists ? 409 : 400
     );
   }
@@ -100,5 +112,5 @@ Deno.serve(async (req) => {
   // sure both match exactly what the administrator entered.
   await admin.from("profiles").update({ role, full_name: fullName }).eq("email", email);
 
-  return json({ id: invited?.user?.id ?? null, email, role, full_name: fullName }, 200);
+  return json({ id: created?.user?.id ?? null, email, role, full_name: fullName }, 200);
 });

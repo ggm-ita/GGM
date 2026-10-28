@@ -13,7 +13,6 @@ import MapReport from '@/pages/MapReport';
 import Retailers from '@/pages/Retailers';
 import RetailerProfile from '@/pages/RetailerProfile';
 import Visits from '@/pages/Visits';
-import BalanceUpload from '@/pages/BalanceUpload';
 import Reports from '@/pages/Reports';
 import RetailerData from '@/pages/RetailerData';
 import Staff from '@/pages/Staff';
@@ -75,14 +74,6 @@ const AuthenticatedApp = () => {
             element={
               <AdminGate>
                 <RetailerData />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/balance"
-            element={
-              <AdminGate>
-                <BalanceUpload />
               </AdminGate>
             }
           />

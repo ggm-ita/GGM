@@ -11,6 +11,7 @@ import InteractionDialog from "@/components/retailers/InteractionDialog";
 import VisitFormDialog from "@/components/visits/VisitFormDialog";
 import MarkVisitedDialog from "@/components/visits/MarkVisitedDialog";
 import BalanceDialog from "@/components/retailers/BalanceDialog";
+import RetailerEditDialog from "@/components/retailers/RetailerEditDialog";
 import { useAuth } from "@/lib/AuthContext";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
   CheckCircle2,
   NotebookPen,
   Navigation,
+  Pencil,
   Wallet,
   Loader2,
 } from "lucide-react";
@@ -60,6 +62,7 @@ export default function RetailerProfile() {
   const [visitOpen, setVisitOpen] = useState(false);
   const [visitedOpen, setVisitedOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -157,7 +160,14 @@ export default function RetailerProfile() {
                 {retailer.province_code ? ` (${retailer.province_code})` : ""} · #{retailer.customer_id}
               </p>
             </div>
-            <StatusPill active={active} />
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusPill active={active} />
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setDetailsOpen(true)}>
+                  <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit details
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background/60 p-4">
@@ -348,6 +358,12 @@ export default function RetailerProfile() {
         onOpenChange={setBalanceOpen}
         retailer={retailer}
         onSaved={() => saved(`${retailer.name} is now active with the new balance.`)}
+      />
+      <RetailerEditDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        retailer={retailer}
+        onSaved={() => saved("Retailer details updated.")}
       />
     </div>
   );

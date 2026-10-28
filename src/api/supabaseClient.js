@@ -408,14 +408,15 @@ const auth = {
 const users = {
   /* Accounts are created by administrators only. The `invite-user` edge
      function re-checks the caller's role server-side before it uses the
-     service-role key, so nobody else can provision users. */
-  inviteUser: async (email, role = "user", fullName = "") => {
+     service-role key, so nobody else can provision users. The admin sets the
+     initial password and no invitation e-mail is sent. */
+  createUser: async (email, password, role = "user", fullName = "") => {
     const { data, error } = await supabase.functions.invoke("invite-user", {
-      body: { email, role, fullName, redirectTo: `${window.location.origin}/login` },
+      body: { email, password, role, fullName },
     });
     if (error) {
       throw new Error(
-        "Could not reach the invite-user function. Deploy it before inviting users (see README)."
+        "Could not reach the invite-user function. Deploy it before creating users (see README)."
       );
     }
     if (data?.error) throw new Error(data.error);
@@ -489,7 +490,7 @@ const inertDb = {
   },
   entities: new Proxy({}, { get: () => inertEntity }),
   users: {
-    inviteUser: async () => {
+    createUser: async () => {
       throw notConfigured();
     },
   },

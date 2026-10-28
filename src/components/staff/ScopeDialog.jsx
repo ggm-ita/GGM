@@ -37,6 +37,7 @@ export default function ScopeDialog({
   const isSelf = !isInvite && user?.email && user.email === currentUser?.email;
 
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("user");
   const [scopeType, setScopeType] = useState("all");
@@ -49,6 +50,7 @@ export default function ScopeDialog({
   useEffect(() => {
     if (!open) return;
     setEmail(user?.email || "");
+    setPassword("");
     setFullName(isInvite ? "" : user?.full_name || "");
     setRole(user?.role || "user");
     setScopeType(user?.scope_type || (isInvite ? "all" : ""));
@@ -89,6 +91,10 @@ export default function ScopeDialog({
       setError("Enter a valid email address.");
       return;
     }
+    if (isInvite && password.length < 8) {
+      setError("Choose a password of at least 8 characters.");
+      return;
+    }
     if (scopeType === "regions" && !regions.length) {
       setError("Pick at least one region.");
       return;
@@ -108,17 +114,18 @@ export default function ScopeDialog({
 
     try {
       if (isInvite) {
-        await db.users.inviteUser(email.trim(), role, fullName.trim());
-        const list = await db.entities.User.list();
-        const created = (list || []).find(
-          (u) => String(u.email).toLowerCase() === email.trim().toLowerCase()
+        const created = await db.users.createUser(
+          email.trim(),
+          password,
+          role,
+          fullName.trim()
         );
-        if (created) await db.entities.User.update(created.id, payload);
-        onSaved?.(
-          created
-            ? "Invitation sent and territory assigned."
-            : "Invitation sent. Assign the territory once the account appears in the list."
-        );
+        if (created?.id) {
+          await db.entities.User.update(created.id, payload);
+          onSaved?.("User created and territory assigned.");
+        } else {
+          onSaved?.("User created. Assign the territory once the account appears in the list.");
+        }
       } else {
         await db.entities.User.update(user.id, payload);
         onSaved?.("Territory updated.");
@@ -136,11 +143,11 @@ export default function ScopeDialog({
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto ggm-scroll">
         <DialogHeader>
           <DialogTitle className="font-heading text-primary">
-            {isInvite ? "Add a user" : "Territory & role"}
+            {isInvite ? "Create a user" : "Territory & role"}
           </DialogTitle>
           <DialogDescription>
             {isInvite
-              ? "The user receives an email invitation and sees only the retailers you assign."
+              ? "The account is created right away with the password you set, and sees only the retailers you assign."
               : user?.full_name || user?.email}
           </DialogDescription>
         </DialogHeader>
@@ -180,6 +187,20 @@ export default function ScopeDialog({
                     <option value="admin">Admin — full access</option>
                   </select>
                 </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="staff-password">Password</Label>
+                <Input
+                  id="staff-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Share this password with the staff member; they can change it after signing in.
+                </p>
               </div>
             </div>
           )}
@@ -293,7 +314,7 @@ export default function ScopeDialog({
             </Button>
             <Button onClick={save} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-              {isInvite ? "Send invitation" : "Save"}
+              {isInvite ? "Create user" : "Save"}
             </Button>
           </div>
         </div>
